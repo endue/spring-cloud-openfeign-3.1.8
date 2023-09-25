@@ -1,0 +1,31 @@
+server:
+  port: 9999
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/xml,application/json
+spring:
+  application:
+    name: testclient
+eureka:
+  server:
+    enabled: false
+  client:
+    registerWithEureka: false
+    fetchRegistry: false
+endpoints:
+  health:
+    sensitive: false
+feignClient:
+  localappName: localapp
+  methodLevelRequestMappingPath: /hello2
+  myPlaceholderHeader: myPlaceholderHeaderValue
+management.endpoints.web.expose: '*'
+
+---
+spring.config.activate.on-profile: no-metrics
+feign.metrics.enabled: false
+
+---
+spring.config.activate.on-profile: no-foo-metrics
+feign.client.config.foo.metrics.enabled: false
