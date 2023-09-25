@@ -57,6 +57,8 @@ import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 /**
+ * 用于创建和管理Feign客户端
+ *
  * @author Spencer Gibb
  * @author Venil Noronha
  * @author Eko Kurniawan Khannedy
@@ -81,26 +83,59 @@ public class FeignClientFactoryBean
 
 	private static final Log LOG = LogFactory.getLog(FeignClientFactoryBean.class);
 
+	/**
+	 * Feign客户端的类型
+	 * 假设接口com.simon.api.HelloFeignService使用了@FeignClient注解，此时type为interface com.simon.api.HelloFeignService
+	 */
 	private Class<?> type;
 
+	/**
+	 * Feign客户端的名称
+	 * 取值@FeignClient的 serviceId -> name -> value 属性，优先级依次递减
+	 */
 	private String name;
 
+	/**
+	 * Feign客户端的URL属性
+	 */
 	private String url;
 
+	/**
+	 * Feign客户端的上下文ID
+	 * 取值@FeignClient的 contextId -> serviceId -> name -> value 属性，优先级依次递减
+	 */
 	private String contextId;
 
+	/**
+	 * Feign客户端的路径
+	 * 取值@FeignClient的path属性
+	 *
+	 */
 	private String path;
 
+	/**
+	 * 404是被解码，还是抛异常
+	 * 取值@FeignClient的decode404属性
+	 */
 	private boolean decode404;
 
 	private boolean inheritParentContext = true;
 
 	private ApplicationContext applicationContext;
 
+	/**
+	 * bean的工厂类
+	 */
 	private BeanFactory beanFactory;
 
+	/**
+	 * Feign客户端的fallback类
+	 */
 	private Class<?> fallback = void.class;
 
+	/**
+	 * Feign客户端的fallbackFactory
+	 */
 	private Class<?> fallbackFactory = void.class;
 
 	private int readTimeoutMillis = new Request.Options().readTimeoutMillis();
@@ -109,6 +144,10 @@ public class FeignClientFactoryBean
 
 	private boolean followRedirects = new Request.Options().isFollowRedirects();
 
+	/**
+	 * 读取全局配置feign.client.refresh-enabled，默认为false.
+	 * 可以通过发送一个POST请求到/actuator/refresh端点来刷新Feign客户端的配置。刷新配置后，Feign客户端将重新加载并使用最新的配置
+	 */
 	private boolean refreshableClient = false;
 
 	private final List<FeignBuilderCustomizer> additionalCustomizers = new ArrayList<>();

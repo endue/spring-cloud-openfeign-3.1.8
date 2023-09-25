@@ -158,13 +158,22 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 	 */
 	@Override
 	public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
+		// 注册全局默认配置
 		registerDefaultConfiguration(metadata, registry);
+		// 注册FeignClient及自定义配置
 		registerFeignClients(metadata, registry);
 	}
 
+	/**
+	 * 注册全局默认配置
+	 * 假设启动类为：com.simon.CloudOpenfeignPracticeApplication，且注解为@EnableFeignClients(defaultConfiguration = {ACustomConfig.class, BCustomConfig.class})
+	 * @param metadata
+	 * @param registry
+	 */
 	private void registerDefaultConfiguration(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
 		Map<String, Object> defaultAttrs = metadata.getAnnotationAttributes(EnableFeignClients.class.getName(), true);
 
+		// 读取EnableFeignClients注解defaultConfiguration属性值
 		if (defaultAttrs != null && defaultAttrs.containsKey("defaultConfiguration")) {
 			String name;
 			if (metadata.hasEnclosingClass()) {
@@ -173,13 +182,22 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 			else {
 				name = "default." + metadata.getClassName();
 			}
+			// name为：default.com.simon.CloudOpenfeignPracticeApplication
+			// defaultAttrs.get("defaultConfiguration")为：["com.simon.config.ACustomConfig", "com.simon.config.BCustomConfig"]
 			registerClientConfiguration(registry, name, defaultAttrs.get("defaultConfiguration"));
 		}
 	}
 
+	/**
+	 * 注册FeignClient及自定义配置
+	 *  假设FeignClient注释类为：com.simon.api.HelloFeignService，且注解为@FeignClient(name = "github-client", configuration = CCustomConfig.class)
+	 * @param metadata
+	 * @param registry
+	 */
 	public void registerFeignClients(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
-
 		LinkedHashSet<BeanDefinition> candidateComponents = new LinkedHashSet<>();
+
+		// 1. 首先读取@EnableFeignClients注解的clients属性，如果没有值在扫描所有的@FeignClient注解
 		Map<String, Object> attrs = metadata.getAnnotationAttributes(EnableFeignClients.class.getName());
 		final Class<?>[] clients = attrs == null ? null : (Class<?>[]) attrs.get("clients");
 		if (clients == null || clients.length == 0) {
@@ -197,6 +215,7 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 			}
 		}
 
+		// 2. 注册FeignClient
 		for (BeanDefinition candidateComponent : candidateComponents) {
 			if (candidateComponent instanceof AnnotatedBeanDefinition) {
 				// verify annotated class is an interface
@@ -207,28 +226,49 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 				Map<String, Object> attributes = annotationMetadata
 						.getAnnotationAttributes(FeignClient.class.getCanonicalName());
 
+				// 2.1 读取FeignClient相关属性，以此作为其自定义配置bean的注册name。读取优先级为:contextId > value > name -> serviceId
 				String name = getClientName(attributes);
+
+				// 2.2 注册FeignClient自定义配置
+				// name为：github-client
+				// attributes.get("defaultConfiguration")为：["com.simon.config.CCustomConfig"]
 				registerClientConfiguration(registry, name, attributes.get("configuration"));
 
+				// 2.3 注册FeignClient
 				registerFeignClient(registry, annotationMetadata, attributes);
 			}
 		}
 	}
 
+	/**
+	 * 注册FeignClient
+	 * 	假设@FeignClient注解的类为：com.simon.api.HelloFeignService
+	 *
+	 * @param registry
+	 * @param annotationMetadata
+	 * @param attributes
+	 */
 	private void registerFeignClient(BeanDefinitionRegistry registry, AnnotationMetadata annotationMetadata,
 			Map<String, Object> attributes) {
+		// 1. 获取@FeignClient注解的类名称，此时为com.simon.api.HelloFeignService
 		String className = annotationMetadata.getClassName();
+		// 2. 根据类名解析出对应的Class对象
 		Class clazz = ClassUtils.resolveClassName(className, null);
+		// 3. 获取可配置的BeanFactory
 		ConfigurableBeanFactory beanFactory = registry instanceof ConfigurableBeanFactory
 				? (ConfigurableBeanFactory) registry : null;
+		// 4. Feign客户端的上下文ID contextId -> serviceId -> name -> value
 		String contextId = getContextId(beanFactory, attributes);
+		// 5. Feign客户端的名称 serviceId -> name -> value
 		String name = getName(attributes);
+		// 6. 创建FeignClientFactoryBean
 		FeignClientFactoryBean factoryBean = new FeignClientFactoryBean();
 		factoryBean.setBeanFactory(beanFactory);
 		factoryBean.setName(name);
 		factoryBean.setContextId(contextId);
 		factoryBean.setType(clazz);
 		factoryBean.setRefreshableClient(isClientRefreshEnabled());
+		// 6.1 如此设置可以达到创建FeignClient的动态刷新功能
 		BeanDefinitionBuilder definition = BeanDefinitionBuilder.genericBeanDefinition(clazz, () -> {
 			factoryBean.setUrl(getUrl(beanFactory, attributes));
 			factoryBean.setPath(getPath(beanFactory, attributes));
@@ -258,6 +298,7 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 
 		beanDefinition.setPrimary(primary);
 
+		// 7. 设置当前FeignClient的别名，只有当qualifiers属性为空时才设置一个： contextId + "FeignClient"
 		String[] qualifiers = getQualifiers(attributes);
 		if (ObjectUtils.isEmpty(qualifiers)) {
 			qualifiers = new String[] { contextId + "FeignClient" };
@@ -277,6 +318,16 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 		validateFallbackFactory(annotation.getClass("fallbackFactory"));
 	}
 
+	private String getContextId(ConfigurableBeanFactory beanFactory, Map<String, Object> attributes) {
+		String contextId = (String) attributes.get("contextId");
+		if (!StringUtils.hasText(contextId)) {
+			return getName(attributes);
+		}
+
+		contextId = resolve(beanFactory, contextId);
+		return getName(contextId);
+	}
+
 	/* for testing */ String getName(Map<String, Object> attributes) {
 		return getName(null, attributes);
 	}
@@ -291,16 +342,6 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 		}
 		name = resolve(beanFactory, name);
 		return getName(name);
-	}
-
-	private String getContextId(ConfigurableBeanFactory beanFactory, Map<String, Object> attributes) {
-		String contextId = (String) attributes.get("contextId");
-		if (!StringUtils.hasText(contextId)) {
-			return getName(attributes);
-		}
-
-		contextId = resolve(beanFactory, contextId);
-		return getName(contextId);
 	}
 
 	private String resolve(ConfigurableBeanFactory beanFactory, String value) {
@@ -417,8 +458,22 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar, ResourceLo
 				"Either 'name' or 'value' must be provided in @" + FeignClient.class.getSimpleName());
 	}
 
+	/**
+	 * 注册FeignClient配置
+	 * 1. 全局默认配置，
+	 * 	启动类为：com.simon.CloudOpenfeignPracticeApplication并在@EnableFeignClients注解上设置defaultConfiguration属性，
+	 * 	则注册的beanName为：default.com.simon.CloudOpenfeignPracticeApplication.FeignClientSpecification
+	 * 2. 私有配置
+	 * 	则注册的beanName为：@FeignClient注解name属性（name具体取值@link FeignClientsRegistrar#getClientName(java.util.Map)） + ".FeignClientSpecification"
+	 *
+	 * @param registry
+	 * @param name
+	 * @param configuration
+	 */
 	private void registerClientConfiguration(BeanDefinitionRegistry registry, Object name, Object configuration) {
+		// 创建用于在Feign客户端创建过程中自定义Feign客户端的默认参数
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(FeignClientSpecification.class);
+		// 设置FeignClientSpecification构造方法的参数：名称以及配置
 		builder.addConstructorArgValue(name);
 		builder.addConstructorArgValue(configuration);
 		registry.registerBeanDefinition(name + "." + FeignClientSpecification.class.getSimpleName(),

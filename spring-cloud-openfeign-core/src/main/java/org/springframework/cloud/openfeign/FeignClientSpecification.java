@@ -22,6 +22,11 @@ import java.util.Objects;
 import org.springframework.cloud.context.named.NamedContextFactory;
 
 /**
+ * Feign客户端的配置类，此类创建有两种场景：
+ * 一种情况是@FeignClient配置configuration属性,另一种情况是@EnableFeignClients配置defaultConfiguration属性
+ * 前者创建当前类的时候name为： FeignClient的name属性（name具体取值@link FeignClientsRegistrar#getClientName(java.util.Map)） + “.FeignClientSpecification”，
+ * 后者name为 "default." + 启动类的路径 + ".FeignClientSpecification"
+ *
  * @author Dave Syer
  * @author Gregor Zurowski
  */
