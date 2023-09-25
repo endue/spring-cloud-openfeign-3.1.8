@@ -158,10 +158,18 @@ public class FeignClientFactoryBean
 		Assert.hasText(name, "Name must be set");
 	}
 
+	/**
+	 * 创建原生Feign的Feign.Builder
+	 *
+	 * @param context
+	 * @return
+	 */
 	protected Feign.Builder feign(FeignContext context) {
+		// 1. 从Feign上下文中获取当前FeignClient的FeignLoggerFactory实例
 		FeignLoggerFactory loggerFactory = get(context, FeignLoggerFactory.class);
 		Logger logger = loggerFactory.create(type);
 
+		// 2. 创建Feign.Builder
 		// @formatter:off
 		Feign.Builder builder = get(context, Feign.Builder.class)
 				// required values
@@ -171,6 +179,7 @@ public class FeignClientFactoryBean
 				.contract(get(context, Contract.class));
 		// @formatter:on
 
+		// 3.
 		configureFeign(context, builder);
 
 		return builder;
@@ -187,10 +196,19 @@ public class FeignClientFactoryBean
 		additionalCustomizers.forEach(customizer -> customizer.customize(builder));
 	}
 
+	/**
+	 * Feign客户端的配置
+	 * 参考{@link FeignAutoConfiguration}
+	 *
+	 * @param context
+	 * @param builder
+	 */
 	protected void configureFeign(FeignContext context, Feign.Builder builder) {
+		// 1. 获取FeignClientProperties实例
 		FeignClientProperties properties = beanFactory != null ? beanFactory.getBean(FeignClientProperties.class)
 				: applicationContext.getBean(FeignClientProperties.class);
 
+		// 2.
 		FeignClientConfigurer feignClientConfigurer = getOptional(context, FeignClientConfigurer.class);
 		setInheritParentContext(feignClientConfigurer.inheritParentConfiguration());
 
@@ -379,6 +397,13 @@ public class FeignClientFactoryBean
 		}
 	}
 
+	/**
+	 * 基于Feign的上下文，获取FeignClient的指定type类的实例
+	 * @param context
+	 * @param type
+	 * @return
+	 * @param <T>
+	 */
 	protected <T> T get(FeignContext context, Class<T> type) {
 		T instance = context.getInstance(contextId, type);
 		if (instance == null) {
@@ -436,19 +461,28 @@ public class FeignClientFactoryBean
 		return null;
 	}
 
+	/**
+	 * 当项目中需要引入被@FeignClient注解标注的对象时,这个方法则创建该对象
+	 * @return
+	 */
 	@Override
 	public Object getObject() {
 		return getTarget();
 	}
 
 	/**
+	 * 创建
+	 *
 	 * @param <T> the target type of the Feign client
 	 * @return a {@link Feign} client created with the specified data and the context
 	 * information
 	 */
 	<T> T getTarget() {
+		// 1. 获取FeignContext，在{@link org.springframework.cloud.openfeign.FeignAutoConfiguration.feignContext} 中声明
 		FeignContext context = beanFactory != null ? beanFactory.getBean(FeignContext.class)
 				: applicationContext.getBean(FeignContext.class);
+
+		// 2. 创建原生Feign的Feign.Builder
 		Feign.Builder builder = feign(context);
 
 		if (!StringUtils.hasText(url)) {
