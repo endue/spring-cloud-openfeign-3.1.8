@@ -124,7 +124,7 @@ public class FeignClientFactoryBean
 	private ApplicationContext applicationContext;
 
 	/**
-	 * bean的工厂类
+	 * bean的工厂类，在注册FeignClient的时候，传入的是BeanDefinitionRegistry
 	 */
 	private BeanFactory beanFactory;
 
@@ -169,7 +169,7 @@ public class FeignClientFactoryBean
 		FeignLoggerFactory loggerFactory = get(context, FeignLoggerFactory.class);
 		Logger logger = loggerFactory.create(type);
 
-		// 2. 创建Feign.Builder
+		// 2. 创建原生Feign.Builder
 		// @formatter:off
 		Feign.Builder builder = get(context, Feign.Builder.class)
 				// required values
@@ -179,7 +179,7 @@ public class FeignClientFactoryBean
 				.contract(get(context, Contract.class));
 		// @formatter:on
 
-		// 3.
+		// 3. 读取@EnableFeignClients、 @FeignClient以及项目配置文件中的配置，对builder进行配置
 		configureFeign(context, builder);
 
 		return builder;
@@ -208,23 +208,45 @@ public class FeignClientFactoryBean
 		FeignClientProperties properties = beanFactory != null ? beanFactory.getBean(FeignClientProperties.class)
 				: applicationContext.getBean(FeignClientProperties.class);
 
-		// 2.
+		// 2. 获取FeignClient的默认配置，在FeignContext实例化时构造方法中有FeignClientsConfiguration
+		// 而FeignClientsConfiguration内部声明了FeignClientConfigurer
 		FeignClientConfigurer feignClientConfigurer = getOptional(context, FeignClientConfigurer.class);
 		setInheritParentContext(feignClientConfigurer.inheritParentConfiguration());
 
-		if (properties != null && inheritParentContext) {
+		/**
+		 * 3. 设置配置，假设配置如下，当前的contextId为github-client
+		 * feign:
+		 *   client:
+		 *     config:
+		 *       github-client:
+		 *         connect-timeout: 100
+		 *       default:
+		 *         connect-timeout: 1000
+		 *     default-to-properties: true
+		 */
+		if (properties != null && inheritParentContext) {// properties != null表示在配置文件中声明了配置
 			if (properties.isDefaultToProperties()) {
+				// 3.1 读取@EnableFeignClients#defaultConfiguration、@FeignClient#configuration配置
+				// 如果两个注解中有相同的配置，则通过
+				// {@link org.springframework.cloud.context.named.NamedContextFactory.getInstance(java.lang.String, java.lang.Class<T>)}
+				// 获取指定type的bean会报错最终返回null，错误为：NoUniqueBeanDefinitionException
 				configureUsingConfiguration(context, builder);
+				// 3.2 读取配置文件中的default的配置
 				configureUsingProperties(properties.getConfig().get(properties.getDefaultConfig()), builder);
+				// 3.3 读取配置文件中的contextId的配置
 				configureUsingProperties(properties.getConfig().get(contextId), builder);
 			}
 			else {
+				// 3.1 读取配置文件中的default的配置
 				configureUsingProperties(properties.getConfig().get(properties.getDefaultConfig()), builder);
+				// 3.2 读取配置文件中的contextId的配置
 				configureUsingProperties(properties.getConfig().get(contextId), builder);
+				// 3.3 读取@EnableFeignClients#defaultConfiguration、@FeignClient#configuration配置
 				configureUsingConfiguration(context, builder);
 			}
 		}
 		else {
+			// 3.1 读取@EnableFeignClients#defaultConfiguration、@FeignClient#configuration配置
 			configureUsingConfiguration(context, builder);
 		}
 	}
@@ -398,7 +420,8 @@ public class FeignClientFactoryBean
 	}
 
 	/**
-	 * 基于Feign的上下文，获取FeignClient的指定type类的实例
+	 * 基于Feign的上下文，获取FeignClient的指定type类的实例.
+	 * 每个FeignClient都会对应一个ApplicationContext
 	 * @param context
 	 * @param type
 	 * @return
