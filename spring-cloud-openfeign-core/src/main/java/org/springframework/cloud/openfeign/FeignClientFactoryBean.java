@@ -97,6 +97,7 @@ public class FeignClientFactoryBean
 
 	/**
 	 * Feign客户端的URL属性
+	 * 取值@FeignClient的url属性
 	 */
 	private String url;
 
@@ -508,8 +509,8 @@ public class FeignClientFactoryBean
 		// 2. 创建原生Feign的Feign.Builder
 		Feign.Builder builder = feign(context);
 
+		// 3. 如果@FeignClient没有配置url，基于服务名的远程调用
 		if (!StringUtils.hasText(url)) {
-
 			if (LOG.isInfoEnabled()) {
 				LOG.info("For '" + name + "' URL not provided. Will try picking an instance via load-balancing.");
 			}
@@ -522,10 +523,12 @@ public class FeignClientFactoryBean
 			url += cleanPath();
 			return (T) loadBalance(builder, context, new HardCodedTarget<>(type, name, url));
 		}
+		// 4. 如果@FeignClient配置了url，基于url地址的远程调用
 		if (StringUtils.hasText(url) && !url.startsWith("http")) {
 			url = "http://" + url;
 		}
 		String url = this.url + cleanPath();
+		// 4.1 默认情况下Client为null，可以根据FeignAutoConfiguration中的配置引入相关包后开启Client
 		Client client = getOptional(context, Client.class);
 		if (client != null) {
 			if (client instanceof FeignBlockingLoadBalancerClient) {
@@ -541,8 +544,9 @@ public class FeignClientFactoryBean
 			builder.client(client);
 		}
 
+		// 应用自定义的配置，覆盖Feign.Builder
 		applyBuildCustomizers(context, builder);
-
+		// 创建代理类
 		Targeter targeter = get(context, Targeter.class);
 		return (T) targeter.target(this, builder, context, new HardCodedTarget<>(type, name, url));
 	}
