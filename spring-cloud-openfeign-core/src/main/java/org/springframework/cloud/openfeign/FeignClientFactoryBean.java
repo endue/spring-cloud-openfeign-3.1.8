@@ -551,7 +551,7 @@ public class FeignClientFactoryBean
 		 * 一种方式是在配置文件中针对当前client配置，一种就是通过添加FeignBuilderCustomizer，该接口是一个函数式接口，参数是Feign.Builder
 		 */
 		applyBuildCustomizers(context, builder);
-		// 6. 创建代理类
+		// 6. 创建代理类，底层默认基于原生feign创建的
 		Targeter targeter = get(context, Targeter.class);
 		return (T) targeter.target(this, builder, context, new HardCodedTarget<>(type, name, url));
 	}

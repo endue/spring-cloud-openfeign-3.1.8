@@ -90,9 +90,12 @@ public final class FeignCircuitBreaker {
 		}
 
 		public Feign build(final FallbackFactory<?> nullableFallbackFactory) {
-			super.invocationHandlerFactory((target, dispatch) -> new FeignCircuitBreakerInvocationHandler(
-					circuitBreakerFactory, feignClientName, target, dispatch, nullableFallbackFactory,
-					circuitBreakerGroupEnabled, circuitBreakerNameResolver));
+			super.invocationHandlerFactory(
+				(target, dispatch) ->
+					new FeignCircuitBreakerInvocationHandler(circuitBreakerFactory, feignClientName,
+						target, dispatch, nullableFallbackFactory,
+						circuitBreakerGroupEnabled, circuitBreakerNameResolver)
+			);
 			return super.build();
 		}
 

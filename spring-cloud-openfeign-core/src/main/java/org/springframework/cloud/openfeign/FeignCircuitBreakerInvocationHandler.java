@@ -99,8 +99,13 @@ class FeignCircuitBreakerInvocationHandler implements InvocationHandler {
 		CircuitBreaker circuitBreaker = circuitBreakerGroupEnabled ? factory.create(circuitName, feignClientName)
 				: factory.create(circuitName);
 		Supplier<Object> supplier = asSupplier(method, args);
+		// 这里降级有两种方式
+		// 一种是配置fallback, fallback应该是个class,该class中定义了一个一模一样的方法。用于真方法失败后调用
+		// 另一种是配置fallbackFactory，也是个class但需要实现FallbackFactory接口，然后在create方法中接收真方法执行返回的错误，返回一个fallback，fallback也是一个class，然后在去执行这个class中定义的一个一模一样的方法
 		if (this.nullableFallbackFactory != null) {
 			Function<Throwable, Object> fallbackFunction = throwable -> {
+				// 无论是定义fallback还是fallbackFactory都是class，fallback会被封装为一个fallbackFactory
+				// 这里执行fallbackFactory返回一个class，然后执行该class中对应的方法
 				Object fallback = this.nullableFallbackFactory.create(throwable);
 				try {
 					return this.fallbackMethodMap.get(method).invoke(fallback, args);
