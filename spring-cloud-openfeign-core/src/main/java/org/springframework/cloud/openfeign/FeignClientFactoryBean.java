@@ -170,14 +170,15 @@ public class FeignClientFactoryBean
 		FeignLoggerFactory loggerFactory = get(context, FeignLoggerFactory.class);
 		Logger logger = loggerFactory.create(type);
 
-		// 2. 创建原生Feign.Builder
+		// 2. 创建原生Feign.Builder并初始化相关配置：FeignLoggerFactory、Feign.Builder、Encoder、Decoder、Contract
 		// @formatter:off
 		Feign.Builder builder = get(context, Feign.Builder.class)
 				// required values
 				.logger(logger)
 				.encoder(get(context, Encoder.class))
 				.decoder(get(context, Decoder.class))
-				.contract(get(context, Contract.class));
+				.contract(get(context, Contract.class));// 注意此处的Contract，feign进行了扩展实际为SpringMvcContract，
+		// 在FeignClientsConfiguration中声明，Feign.Builder创建target的时候会解析方法，从而支持了springmvc的相关注解
 		// @formatter:on
 
 		// 3. 读取@EnableFeignClients、 @FeignClient以及项目配置文件中的配置，对builder进行配置
@@ -506,7 +507,7 @@ public class FeignClientFactoryBean
 		FeignContext context = beanFactory != null ? beanFactory.getBean(FeignContext.class)
 				: applicationContext.getBean(FeignContext.class);
 
-		// 2. 创建原生Feign的Feign.Builder
+		// 2. 创建原生Feign的Feign.Builder并基于相关注解或配置文件覆盖默认配置
 		Feign.Builder builder = feign(context);
 
 		// 3. 如果@FeignClient没有配置url，基于服务名的远程调用
@@ -544,9 +545,13 @@ public class FeignClientFactoryBean
 			builder.client(client);
 		}
 
-		// 应用自定义的配置，覆盖Feign.Builder
+		/**
+		 * 5. 这里是适配基于 {@link FeignClientBuilder}创建FeignClient的场景
+		 * 因为FeignClientBuilder中只能配置url、contextId、fallback、path、decode404属性，但是我们想要的编解码器、拦截器却没有。
+		 * 一种方式是在配置文件中针对当前client配置，一种就是通过添加FeignBuilderCustomizer，该接口是一个函数式接口，参数是Feign.Builder
+		 */
 		applyBuildCustomizers(context, builder);
-		// 创建代理类
+		// 6. 创建代理类
 		Targeter targeter = get(context, Targeter.class);
 		return (T) targeter.target(this, builder, context, new HardCodedTarget<>(type, name, url));
 	}

@@ -21,6 +21,9 @@ import feign.Feign;
 import org.springframework.context.ApplicationContext;
 
 /**
+ * 一个用于创建Feign客户端而不使用FeignClient注解的构建器。
+ * 使用上可以参数这里：https://juejin.cn/post/7107514972585852958
+ *
  * A builder for creating Feign clients without using the {@link FeignClient} annotation.
  * <p>
  * This builder builds the Feign client exactly like it would be created by using the
