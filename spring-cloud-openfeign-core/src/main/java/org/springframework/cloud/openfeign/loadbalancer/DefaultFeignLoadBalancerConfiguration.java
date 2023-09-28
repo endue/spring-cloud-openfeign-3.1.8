@@ -32,6 +32,9 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 /**
+ * 可以参考该博客中的内容来了解spring-cloud-loadbalancer的流程
+ * {@link https://blog.csdn.net/guntun8987/category_11865147.html}
+ *
  * Configuration instantiating a {@link LoadBalancerClient}-based {@link Client} object
  * that uses {@link Client.Default} under the hood.
  *
